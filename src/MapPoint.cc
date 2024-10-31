@@ -31,17 +31,18 @@ MapPoint::MapPoint():
     mnFirstKFid(0), mnFirstFrame(0), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mnVisible(1), mnFound(1), mbBad(false),
-    mpReplaced(static_cast<MapPoint*>(NULL))
+    mpReplaced(static_cast<MapPoint*>(NULL)), mClassIdx(0)
 {
     mpReplaced = static_cast<MapPoint*>(NULL);
 }
 
-MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap):
+// Tracking::2420, 2436, 2582, 2586, 3336, LocalMapping.cc:694
+MapPoint::MapPoint(const Eigen::Vector3f &Pos, KeyFrame *pRefKF, Map* pMap, int class_idx):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
-    mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap),
-    mnOriginMapId(pMap->GetId())
+    mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap), 
+    mnOriginMapId(pMap->GetId()), mClassIdx(class_idx)
 {
     SetWorldPos(Pos);
 
@@ -60,8 +61,9 @@ MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF,
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
     mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap),
-    mnOriginMapId(pMap->GetId())
+    mnOriginMapId(pMap->GetId()), mClassIdx(0)
 {
+    std::cout << "point1" << std::endl;
     mInvDepth=invDepth;
     mInitU=(double)uv_init.x;
     mInitV=(double)uv_init.y;
@@ -75,6 +77,7 @@ MapPoint::MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF,
     mnId=nNextId++;
 }
 
+// Tracking ::2872
 MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const int &idxF):
     mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
     mnBALocalForKF(0), mnFuseCandidateForKF(0),mnLoopPointForKF(0), mnCorrectedByKF(0),
@@ -83,8 +86,9 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const i
 {
     SetWorldPos(Pos);
 
-    Eigen::Vector3f Ow;
-    if(pFrame -> Nleft == -1 || idxF < pFrame -> Nleft){
+    Eigen::Vector3f Ow; // ワールド座標系の原点
+    // NleftはmvKeys.size()で定義される
+    if(pFrame -> Nleft == -1 || idxF < pFrame -> Nleft){ // Nleftは-1のときステレオfishEyeカメラではない，かつ，フレームインデックスよりも特徴点の数が多い場合
         Ow = pFrame->GetCameraCenter();
     }
     else{
@@ -97,18 +101,21 @@ MapPoint::MapPoint(const Eigen::Vector3f &Pos, Map* pMap, Frame* pFrame, const i
     mNormalVector = mWorldPos - Ow;
     mNormalVector = mNormalVector / mNormalVector.norm();
 
-    Eigen::Vector3f PC = mWorldPos - Ow;
-    const float dist = PC.norm();
+    Eigen::Vector3f PC = mWorldPos - Ow; // ワールド座標系の位置から原点の位置の差
+    const float dist = PC.norm(); // // 原点からmWorldPosまでの距離，ユークリッド距離
     const int level = (pFrame -> Nleft == -1) ? pFrame->mvKeysUn[idxF].octave
                                               : (idxF < pFrame -> Nleft) ? pFrame->mvKeys[idxF].octave
-                                                                         : pFrame -> mvKeysRight[idxF].octave;
-    const float levelScaleFactor =  pFrame->mvScaleFactors[level];
+                                                                         : pFrame -> mvKeysRight[idxF].octave; // octaveにはfastを適用したlevelを格納
+    const float levelScaleFactor =  pFrame->mvScaleFactors[level]; // 1.2^(level-1)
     const int nLevels = pFrame->mnScaleLevels;
 
-    mfMaxDistance = dist*levelScaleFactor;
+    mfMaxDistance = dist*levelScaleFactor; // ORBextractorのmvScaleFactorsを参照
     mfMinDistance = mfMaxDistance/pFrame->mvScaleFactors[nLevels-1];
 
     pFrame->mDescriptors.row(idxF).copyTo(mDescriptor);
+
+    // クラスインデックス
+    mClassIdx = pFrame->mvKeysUn[idxF].class_id;
 
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);

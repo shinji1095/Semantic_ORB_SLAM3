@@ -20,8 +20,8 @@
 #ifndef ORBVOCABULARY_H
 #define ORBVOCABULARY_H
 
-#include"Thirdparty/DBoW2/DBoW2/FORB.h"
-#include"Thirdparty/DBoW2/DBoW2/TemplatedVocabulary.h"
+#include"/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/FORB.h"
+#include"/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/TemplatedVocabulary.h"
 
 namespace ORB_SLAM3
 {

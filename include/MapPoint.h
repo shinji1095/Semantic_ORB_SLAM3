@@ -52,6 +52,7 @@ class MapPoint
         ar & mnFirstKFid;
         ar & mnFirstFrame;
         ar & nObs;
+        ar & mClassIdx;
         // Variables used by the tracking
         //ar & mTrackProjX;
         //ar & mTrackProjY;
@@ -107,7 +108,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     MapPoint();
 
-    MapPoint(const Eigen::Vector3f &Pos, KeyFrame* pRefKF, Map* pMap);
+    MapPoint(const Eigen::Vector3f &Pos, KeyFrame* pRefKF, Map* pMap, int class_idx);
     MapPoint(const double invDepth, cv::Point2f uv_init, KeyFrame* pRefKF, KeyFrame* pHostKF, Map* pMap);
     MapPoint(const Eigen::Vector3f &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
 
@@ -206,6 +207,8 @@ public:
     static std::mutex mGlobalMutex;
 
     unsigned int mnOriginMapId;
+
+    int mClassIdx;
 
 protected:    
 

@@ -54,6 +54,8 @@ private:
 
     bool ParseViewerParamFile(cv::FileStorage &fSettings);
 
+    void setGlColor(const cv::Scalar& color);
+
     float mKeyFrameSize;
     float mKeyFrameLineWidth;
     float mGraphLineWidth;

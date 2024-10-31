@@ -691,7 +691,23 @@ void LocalMapping::CreateNewMapPoints()
                 continue;
 
             // Triangulation is succesfull
-            MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
+            // std::cout << "--- work6!"  << std::endl;
+            int class_idx1 = mpCurrentKeyFrame->mvKeysUn[idx1].class_id;
+            int class_idx2 = pKF2->mvKeysUn[idx2].class_id;
+            int class_idx = 7;
+            // if (class_idx1 == 13 || class_idx2 == 13){ // crosswalk
+            //     class_idx = 13;
+            // } else if (class_idx1 == 15 || class_idx2 == 15) // signal_red
+            // {
+            //     class_idx = 15;
+            // }else if (class_idx1 == 16 || class_idx2 == 16){
+            //     class_idx = 16;
+            // }else {
+            //     class_idx = class_idx1;
+            // }
+            
+            // std::cout << "class idx1 " << class_idx1 << ", class idx2 " << class_idx2 << std::endl;
+            MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap(), class_idx);
             if (bPointStereo)
                 countStereo++;
             

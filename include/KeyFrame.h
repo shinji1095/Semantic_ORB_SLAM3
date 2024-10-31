@@ -21,8 +21,8 @@
 #define KEYFRAME_H
 
 #include "MapPoint.h"
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/BowVector.h"
+#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 #include "ORBVocabulary.h"
 #include "ORBextractor.h"
 #include "Frame.h"
@@ -423,6 +423,9 @@ public:
 
     //bool mbHasHessian;
     //cv::Mat mHessianPose;
+    
+    // Moving flg
+    int flag_kf_mov;
 
     // The following variables need to be accessed trough a mutex to be thread safe.
 protected:

@@ -407,9 +407,9 @@ namespace ORB_SLAM3
             };
 
     ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
-                               int _iniThFAST, int _minThFAST):
+                               int _iniThFAST, int _minThFAST, int _cameraWidth,int _cameraHeight):
             nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-            iniThFAST(_iniThFAST), minThFAST(_minThFAST)
+            iniThFAST(_iniThFAST), minThFAST(_minThFAST), cameraWidth(_cameraWidth), cameraHeight(_cameraHeight)
     {
         mvScaleFactor.resize(nlevels);
         mvLevelSigma2.resize(nlevels);
@@ -430,6 +430,7 @@ namespace ORB_SLAM3
         }
 
         mvImagePyramid.resize(nlevels);
+        mvImagePyramidSegment.resize(nlevels);
 
         mnFeaturesPerLevel.resize(nlevels);
         float factor = 1.0f / scaleFactor;
@@ -1083,22 +1084,226 @@ namespace ORB_SLAM3
             computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
     }
 
-    int ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
-                                  OutputArray _descriptors, std::vector<int> &vLappingArea)
+    void ORBextractor::ComputeConvexhullFromMask(std::vector<cv::Point>& convexhulls, int targetLabel)
+    {
+        for ( int level = 0; level < nlevels; ++level)
+        {
+            cv::Mat segment_image = mvImagePyramidSegment[level].clone();
+            cv::Mat mask = (segment_image == targetLabel);
+
+            cv::Mat dilated_mask;
+            int dilation_size = 3;
+            cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT,
+                                                        cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+                                                        cv::Point(dilation_size, dilation_size));
+            cv::dilate(mask, dilated_mask, element);
+            std::vector<std::vector<cv::Point>> crosswalk_contours;
+            cv::findContours(dilated_mask, crosswalk_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+            
+            for (size_t i = 0; i < crosswalk_contours.size(); i++)
+            {
+                cv::convexHull(crosswalk_contours[i], convexhulls);
+            }
+        }
+    }
+
+    std::vector<cv::Point> ORBextractor::CheckMovingKeyPointsAndCalculateConvexHull(std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T)
+    {
+        float scale;
+        int flag_orb_mov =0;
+
+        // AI output starts frmo 0, but labels start from 1
+        int crosswalkLabel = CROSSWALK_LABEL-1; // AI output is
+        int signalRedLabel = SIGNAL_RED_LABEL-1;
+
+        // Convexhull
+        // Generate a crosswalk mask and polygon for each level
+        std::vector<cv::Point> convexhulls;
+        ComputeConvexhullFromMask(convexhulls, crosswalkLabel);
+        
+        
+        // Make further judgment        
+        // Moving
+        for (int level = 0; level < nlevels; ++level)
+        {
+            vector<cv::KeyPoint>& mkeypoints = mvKeysT[level];
+            int nkeypointsLevel = (int)mkeypoints.size();
+            if(nkeypointsLevel==0)
+                    continue;
+            if (level != 0)
+                scale = mvScaleFactor[level]; 
+            else
+                scale =1; 
+            
+            vector<cv::KeyPoint>::iterator keypoint = mkeypoints.begin();
+        
+            cv::Mat imSegment = mvImagePyramidSegment[0].clone();
+            while(keypoint != mkeypoints.end())
+            {
+                bool is_crosswalk = false;
+                cv::Point2f search_coord = keypoint->pt * scale;
+                // Search in the semantic image
+                // std::cout << "scale " << scale << ", x " << search_coord.x << ", y" << search_coord.y << std::endl;
+                if(search_coord.x >= (cameraWidth -1)) search_coord.x=(cameraWidth -1);
+                if(search_coord.y >= (cameraHeight -1)) search_coord.y=(cameraHeight -1);
+                int label_coord =(int)imSegment.ptr<uchar>((int)search_coord.y)[(int)search_coord.x];
+                if(label_coord == PEOPLE_LABLE 
+                || label_coord == BICYCLE_LABEL 
+                || label_coord == CAR_LABEL 
+                || label_coord == MOTORBIKE_LABEL 
+                || label_coord == BUS_LABEL 
+                || label_coord ==TRUCK_LABEL) 
+                {
+                    flag_orb_mov=1;
+                    keypoint=mkeypoints.erase(keypoint);		       
+                }
+                else
+                {
+                    // If inside the crosswalk polygon, give the crosswalk label.
+                    for (size_t i = 0; i < convexhulls.size(); i++) 
+                    {
+                        if (cv::pointPolygonTest(convexhulls, search_coord, false) > 0) 
+                        {
+                            is_crosswalk = true;
+                            break;
+                        }
+                    }
+                    if (is_crosswalk){
+                        keypoint->class_id = 13; // crosswalk
+                        // std::cout << "Hit crosswalk" << std::endl;
+                    } else{
+                        keypoint->class_id = label_coord;
+                    }
+                    keypoint++;
+                }
+            }
+        }
+        return convexhulls;  
+    }
+
+    // Epipolar constraints and output the T matrix.
+    void ORBextractor::ProcessMovingObject(const cv::Mat &imgray)
+    {
+        // Clear the previous data
+        F_prepoint.clear();
+        F_nextpoint.clear();
+        F2_prepoint.clear();
+        F2_nextpoint.clear();
+        T_M.clear();
+
+        // Detect dynamic target and ultimately output the T matrix
+        
+        cv::goodFeaturesToTrack(imGrayPre, prepoint, 1000, 0.01, 8, cv::Mat(), 3, true, 0.04);
+        cv::cornerSubPix(imGrayPre, prepoint, cv::Size(10, 10), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 20, 0.03));
+        cv::calcOpticalFlowPyrLK(imGrayPre, imgray, prepoint, nextpoint, state, err, cv::Size(22, 22), 5, cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, 20, 0.01));
+
+        for (int i = 0; i < state.size(); i++)
+        {
+            if(state[i] != 0)
+            {
+                int dx[10] = { -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+                int dy[10] = { -1, -1, -1, 0, 0, 0, 1, 1, 1 };
+                int x1 = prepoint[i].x, y1 = prepoint[i].y;
+                int x2 = nextpoint[i].x, y2 = nextpoint[i].y;
+                if ((x1 < limit_edge_corner || x1 >= imgray.cols - limit_edge_corner || x2 < limit_edge_corner || x2 >= imgray.cols - limit_edge_corner
+                || y1 < limit_edge_corner || y1 >= imgray.rows - limit_edge_corner || y2 < limit_edge_corner || y2 >= imgray.rows - limit_edge_corner))
+                {
+                    state[i] = 0;
+                    continue;
+                }
+                double sum_check = 0;
+                for (int j = 0; j < 9; j++)
+                    sum_check += abs(imGrayPre.at<uchar>(y1 + dy[j], x1 + dx[j]) - imgray.at<uchar>(y2 + dy[j], x2 + dx[j]));
+                if (sum_check > limit_of_check) state[i] = 0;
+                if (state[i])
+                {
+                    F_prepoint.push_back(prepoint[i]);
+                    F_nextpoint.push_back(nextpoint[i]);
+                }
+            }
+        }
+        // F-Matrix
+        cv::Mat mask = cv::Mat(cv::Size(1, 300), CV_8UC1);
+        cv::Mat F = cv::findFundamentalMat(F_prepoint, F_nextpoint, mask, cv::FM_RANSAC, 0.1, 0.99);
+        for (int i = 0; i < mask.rows; i++)
+        {
+            if (mask.at<uchar>(i, 0) == 0);
+            else
+            {
+                // Circle(pre_frame, F_prepoint[i], 6, Scalar(255, 255, 0), 3);
+                double A = F.at<double>(0, 0)*F_prepoint[i].x + F.at<double>(0, 1)*F_prepoint[i].y + F.at<double>(0, 2);
+                double B = F.at<double>(1, 0)*F_prepoint[i].x + F.at<double>(1, 1)*F_prepoint[i].y + F.at<double>(1, 2);
+                double C = F.at<double>(2, 0)*F_prepoint[i].x + F.at<double>(2, 1)*F_prepoint[i].y + F.at<double>(2, 2);
+                double dd = fabs(A*F_nextpoint[i].x + B*F_nextpoint[i].y + C) / sqrt(A*A + B*B); //Epipolar constraints
+                if (dd <= 0.1)
+                {
+                    F2_prepoint.push_back(F_prepoint[i]);
+                    F2_nextpoint.push_back(F_nextpoint[i]);
+                }
+            }
+        }
+        F_prepoint = F2_prepoint;
+        F_nextpoint = F2_nextpoint;
+
+        for (int i = 0; i < prepoint.size(); i++)
+        {
+            if (state[i] != 0)
+            {
+                double A = F.at<double>(0, 0)*prepoint[i].x + F.at<double>(0, 1)*prepoint[i].y + F.at<double>(0, 2);
+                double B = F.at<double>(1, 0)*prepoint[i].x + F.at<double>(1, 1)*prepoint[i].y + F.at<double>(1, 2);
+                double C = F.at<double>(2, 0)*prepoint[i].x + F.at<double>(2, 1)*prepoint[i].y + F.at<double>(2, 2);
+                double dd = fabs(A*nextpoint[i].x + B*nextpoint[i].y + C) / sqrt(A*A + B*B);
+
+                // Judge outliers
+                if (dd <= limit_dis_epi) continue;
+                T_M.push_back(nextpoint[i]);
+            }
+        }
+
+    }
+
+
+    int ORBextractor::operator()( InputArray _image, InputArray _segment, InputArray _mask, vector<KeyPoint>& _keypoints,
+                                  OutputArray _descriptors, std::vector<int> &vLappingArea, vector<Point>& _convexhulls)
     {
         //cout << "[ORBextractor]: Max Features: " << nfeatures << endl;
         if(_image.empty())
             return -1;
 
-        Mat image = _image.getMat();
+        cv::Mat image = _image.getMat();
+        cv::Mat imS = _segment.getMat();
         assert(image.type() == CV_8UC1 );
 
         // Pre-compute the scale pyramid
         ComputePyramid(image);
 
+        // Pre-compute the scale pyramid of segment image
+        ComputePyramidSegment(imS);
+
         vector < vector<KeyPoint> > allKeypoints;
         ComputeKeyPointsOctTree(allKeypoints);
         //ComputeKeyPointsOld(allKeypoints);
+
+        cv::Mat  imGrayT = image;
+        // From STDyn-SALM
+        if(imGrayPre.data)
+        {
+            std::chrono::steady_clock::time_point tm1 = std::chrono::steady_clock::now();
+            ProcessMovingObject(image);
+            std::chrono::steady_clock::time_point tm2 = std::chrono::steady_clock::now();
+            movingDetectTime= std::chrono::duration_cast<std::chrono::duration<double> >(tm2 - tm1).count();
+            std::swap(imGrayPre, imGrayT);
+        }
+        else
+        {
+            std::swap(imGrayPre, imGrayT);
+        }
+
+        std::chrono::steady_clock::time_point tc1 = std::chrono::steady_clock::now();
+        _convexhulls = CheckMovingKeyPointsAndCalculateConvexHull(allKeypoints,T_M);
+        std::chrono::steady_clock::time_point tc2 = std::chrono::steady_clock::now();
+        double tc= std::chrono::duration_cast<std::chrono::duration<double> >(tc2 - tc1).count();
+        cout << "check time CheckMovingKeyPointsAndCalculateConvexHull =" << tc*1000 <<  endl; // milisecond
 
         Mat descriptors;
 
@@ -1191,7 +1396,33 @@ namespace ORB_SLAM3
                                BORDER_REFLECT_101);
             }
         }
-
     }
+
+    void ORBextractor::ComputePyramidSegment(cv::Mat imS)
+    {
+        for (int level = 0; level < nlevels; ++level)
+        {
+            float scale = mvInvScaleFactor[level];
+            Size sz(cvRound((float)imS.cols*scale), cvRound((float)imS.rows*scale));
+            Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
+            Mat temp(wholeSize, imS.type()), masktemp;
+            mvImagePyramidSegment[level] = temp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
+
+            // Compute the resized image
+            if( level != 0 )
+            {
+                resize(mvImagePyramidSegment[level-1], mvImagePyramidSegment[level], sz, 0, 0, INTER_LINEAR);
+
+                copyMakeBorder(mvImagePyramidSegment[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                               BORDER_REFLECT_101+BORDER_ISOLATED);
+            }
+            else
+            {
+                copyMakeBorder(imS, temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                               BORDER_REFLECT_101);
+            }
+        }
+    }
+
 
 } //namespace ORB_SLAM

@@ -69,9 +69,9 @@ public:
     bool ParseIMUParamFile(cv::FileStorage &fSettings);
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
-    Sophus::SE3f GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp, string filename);
-    Sophus::SE3f GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, string filename);
-    Sophus::SE3f GrabImageMonocular(const cv::Mat &im, const double &timestamp, string filename);
+    Sophus::SE3f GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const cv::Mat &imRectSegment, const double &timestamp, string filename);
+    Sophus::SE3f GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imS,const cv::Mat &imD, const double &timestamp, string filename);
+    Sophus::SE3f GrabImageMonocular(const cv::Mat &im,const cv::Mat &imS, const double &timestamp, string filename);
 
     void GrabImuData(const IMU::Point &imuMeasurement);
 
@@ -138,7 +138,12 @@ public:
     Frame mCurrentFrame;
     Frame mLastFrame;
 
+    cv::Mat mImS;
+    cv::Mat mImS_C;
     cv::Mat mImGray;
+    cv::Mat mImRGB;// adding for color point map  by zoe
+    cv::Mat mImDepth; // adding mImDepth member to realize pointcloud view
+    cv::Mat mImSegment;
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;
@@ -164,13 +169,21 @@ public:
     void Reset(bool bLocMap = false);
     void ResetActiveMap(bool bLocMap = false);
 
+    // For the semantic segmentation thread
+    // Segment* mpSegment;
+    // cv::Mat mImgNew;
+    // std::condition_variable mbcvImgNew;
+    // void GetImg(const cv::Mat &img);
+    // void SetSegment(Segment* segment);
+    // bool isNewSegmentImgArrived();
+    // bool mbNewSegImgFlag;
+
     float mMeanTrack;
     bool mbInitWith3KFs;
     double t0; // time-stamp of first read frame
     double t0vis; // time-stamp of first inserted keyframe
     double t0IMU; // time-stamp of IMU initialization
     bool mFastInit = false;
-
 
     vector<MapPoint*> GetLocalMapMPS();
 

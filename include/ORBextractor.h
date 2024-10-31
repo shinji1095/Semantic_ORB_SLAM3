@@ -23,6 +23,47 @@
 #include <list>
 #include <opencv2/opencv.hpp>
 
+#define PEOPLE_LABLE 1
+#define BICYCLE_LABEL 2
+#define CAR_LABEL 3
+#define MOTORBIKE_LABEL 4
+#define BUS_LABEL 5
+#define train 6
+#define TRUCK_LABEL 7
+#define boat 8
+#define traffic_light 9
+#define bicycler 10
+#define braille_block 11
+#define guardrail 12
+#define white_line 13
+#define CROSSWALK_LABEL 14
+#define signal_button 15
+#define SIGNAL_RED_LABEL 16
+#define signal_blue 17
+#define stairs 18
+#define handrail 19
+#define steps 20
+#define faregates 21
+#define train_ticket_machine 22
+#define shrubs 23
+#define tree 24
+#define vending_machine 25
+#define bathroom 26
+#define door 27
+#define elevator 28
+#define escalator 29
+#define bollard 30
+#define bus_stop_sign 31
+#define pole 32
+#define MONUMENT_LABEL 33
+#define FENCE_LABEL 34
+#define wall 35
+#define signboard 36
+#define FLAG_LABEL 37
+#define postbox 38
+#define safetycone 39
+#define SIDEWALK_LABEL 40
+#define ROAD_LABEL 41
 
 namespace ORB_SLAM3
 {
@@ -47,16 +88,17 @@ public:
     enum {HARRIS_SCORE=0, FAST_SCORE=1 };
 
     ORBextractor(int nfeatures, float scaleFactor, int nlevels,
-                 int iniThFAST, int minThFAST);
+                 int iniThFAST, int minThFAST,
+                 int cameraWidth,int cameraHeight);
 
     ~ORBextractor(){}
 
     // Compute the ORB features and descriptors on an image.
     // ORB are dispersed on the image using an octree.
     // Mask is ignored in the current implementation.
-    int operator()( cv::InputArray _image, cv::InputArray _mask,
-                    std::vector<cv::KeyPoint>& _keypoints,
-                    cv::OutputArray _descriptors, std::vector<int> &vLappingArea);
+    int operator()( cv::InputArray _image, cv::InputArray _segment, cv::InputArray _mask,
+                    std::vector<cv::KeyPoint>& _keypoints, cv::OutputArray _descriptors,
+                    std::vector<int> &vLappingArea, std::vector<cv::Point>& _convexhulls);
 
     int inline GetLevels(){
         return nlevels;}
@@ -81,22 +123,50 @@ public:
     }
 
     std::vector<cv::Mat> mvImagePyramid;
+    std::vector<cv::Mat> mvImagePyramidSegment;
+    std::vector<cv::Point> CheckMovingKeyPointsAndCalculateConvexHull(std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T);
+    void ProcessMovingObject(const cv::Mat &imgray );
+    void ComputeConvexhullFromMask(std::vector<cv::Point>& convexhulls, int targetLabel);
+
+    // The previous image
+    cv::Mat imGrayPre;
+    std::vector<cv::Point2f> prepoint, nextpoint;
+    std::vector<cv::Point2f> F_prepoint, F_nextpoint;
+    std::vector<cv::Point2f> F2_prepoint, F2_nextpoint;
+
+    std::vector<uchar> state;
+    std::vector<float> err;
+    std::vector<std::vector<cv::KeyPoint>> mvKeysPre;
+    std::vector<cv::Point2f> T_M;
+    double limit_dis_epi =1; 
+    double limit_of_check = 2120;
+    int limit_edge_corner = 5;
+
+    ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
+
+    double orbExtractTime;
+    double movingDetectTime;
 
 protected:
 
     void ComputePyramid(cv::Mat image);
+    void ComputePyramidSegment(cv::Mat imS);
     void ComputeKeyPointsOctTree(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);    
     std::vector<cv::KeyPoint> DistributeOctTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                            const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+    void ComputeConvexhullFromMask();
     std::vector<cv::Point> pattern;
+
+    // int mostFrequentElement(const std::vector<int>& class_indices);
 
     int nfeatures;
     double scaleFactor;
     int nlevels;
     int iniThFAST;
     int minThFAST;
+    int cameraWidth,cameraHeight;
 
     std::vector<int> mnFeaturesPerLevel;
 
