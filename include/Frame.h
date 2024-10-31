@@ -22,10 +22,10 @@
 
 #include<vector>
 
-#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+#include "/root/catkin_ws/src/Semantic_ORB_SLAM3/Thirdparty/DBoW2/DBoW2/BowVector.h"
+#include "/root/catkin_ws/src/Semantic_ORB_SLAM3/Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 
-#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/Sophus/sophus/geometry.hpp"
+#include "/root/catkin_ws/src/Semantic_ORB_SLAM3/Thirdparty/Sophus/sophus/geometry.hpp"
 
 #include "ImuTypes.h"
 #include "ORBVocabulary.h"

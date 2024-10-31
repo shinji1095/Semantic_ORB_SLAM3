@@ -21,8 +21,8 @@
 #define KEYFRAME_H
 
 #include "MapPoint.h"
-#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "/root/catkin_ws/src/ORB_SLAM3/Thirdparty/DBoW2/DBoW2/FeatureVector.h"
+#include "/root/catkin_ws/src/Semantic_ORB_SLAM3/Thirdparty/DBoW2/DBoW2/BowVector.h"
+#include "/root/catkin_ws/src/Semantic_ORB_SLAM3/Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 #include "ORBVocabulary.h"
 #include "ORBextractor.h"
 #include "Frame.h"
