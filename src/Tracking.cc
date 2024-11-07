@@ -2584,7 +2584,7 @@ void Tracking::CreateInitialMapMonocular()
         Eigen::Vector3f worldPos;
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
         // Class idx
-        int class_idx = mCurrentFrame.mvKeys[i].class_id;
+        int class_idx = mCurrentFrame.mvKeysUn[i].class_id;
         MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpAtlas->GetCurrentMap(), class_idx);
 
         pKFini->AddMapPoint(pMP,i);
@@ -2872,7 +2872,7 @@ void Tracking::UpdateLastFrame()
             }
             std::cout << "--- point4!"  << std::endl;
             int class_idx = mLastFrame.mvKeys[i].class_id;
-            MapPoint* pNewMP = new MapPoint(x3D,mpAtlas->GetCurrentMap(),&mLastFrame,class_idx);
+            MapPoint* pNewMP = new MapPoint(x3D,mpAtlas->GetCurrentMap(),&mLastFrame,i, class_idx);
             mLastFrame.mvpMapPoints[i]=pNewMP;
 
             mlpTemporalPoints.push_back(pNewMP);

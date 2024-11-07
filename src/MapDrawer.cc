@@ -81,10 +81,10 @@ namespace ORB_SLAM3
     cv::Scalar(0, 255, 255),    // 3: motorbike
     cv::Scalar(255, 255, 0),    // 4: bus
     cv::Scalar(255, 0, 255),    // 5: train
-    cv::Scalar(192, 192, 192),  // 6: truck
-    cv::Scalar(128, 128, 128),  // 7: boat
-    cv::Scalar(0, 0, 128),      // traffic_light
-    cv::Scalar(0, 128, 128),    // bicycler
+    cv::Scalar(0, 255, 255),    // 6: truck
+    cv::Scalar(0, 0, 255),      // 7: boat
+    cv::Scalar(0, 255, 0),      // 8: traffic_light
+    cv::Scalar(255, 0, 0),      // 9: bicycler
     cv::Scalar(0, 128, 0),      // braille_block
     cv::Scalar(128, 0, 128),    // guardrail
     cv::Scalar(128, 128, 0),    // white_line

@@ -1084,10 +1084,12 @@ namespace ORB_SLAM3
             computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
     }
 
-    void ORBextractor::ComputeConvexhullFromMask(std::vector<cv::Point>& convexhulls, int targetLabel)
+    void ORBextractor::ComputeConvexhullFromMask(std::vector< std::vector<cv::Point> >& convexHulls, int targetLabel)
     {
-        for ( int level = 0; level < nlevels; ++level)
+        auto it = convexHulls.begin();
+        for (int level = 0; level < nlevels; ++level)
         {
+            std::vector<cv::Point> convexHull;
             cv::Mat segment_image = mvImagePyramidSegment[level].clone();
             cv::Mat mask = (segment_image == targetLabel);
 
@@ -1097,17 +1099,38 @@ namespace ORB_SLAM3
                                                         cv::Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                                                         cv::Point(dilation_size, dilation_size));
             cv::dilate(mask, dilated_mask, element);
-            std::vector<std::vector<cv::Point>> crosswalk_contours;
-            cv::findContours(dilated_mask, crosswalk_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-            
-            for (size_t i = 0; i < crosswalk_contours.size(); i++)
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(dilated_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+            if (!contours.empty())
             {
-                cv::convexHull(crosswalk_contours[i], convexhulls);
+                // Find the contour with the largest area
+                double max_area = 0;
+                int max_area_index = -1;
+                for (size_t i = 0; i < contours.size(); i++)
+                {
+                    double area = cv::contourArea(contours[i]);
+                    if (area > max_area)
+                    {
+                        max_area = area;
+                        max_area_index = i;
+                    }
+                }
+
+                if (max_area_index != -1)
+                {
+                    // Retrieve the contour with the largest area and calculate its convex hull
+                    cv::convexHull(contours[max_area_index], convexHull);
+                }
             }
+            convexHulls.at(level) = convexHull;
+            // it = convexHulls.insert(it, convexHull);
+            // it++;
         }
     }
 
-    std::vector<cv::Point> ORBextractor::CheckMovingKeyPointsAndCalculateConvexHull(std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T)
+    void ORBextractor::CheckWithConvexHull(std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T,
+                                                              std::vector< std::vector<cv::Point> >& convexHulls)
     {
         float scale;
         int flag_orb_mov =0;
@@ -1116,12 +1139,6 @@ namespace ORB_SLAM3
         int crosswalkLabel = CROSSWALK_LABEL-1; // AI output is
         int signalRedLabel = SIGNAL_RED_LABEL-1;
 
-        // Convexhull
-        // Generate a crosswalk mask and polygon for each level
-        std::vector<cv::Point> convexhulls;
-        ComputeConvexhullFromMask(convexhulls, crosswalkLabel);
-        
-        
         // Make further judgment        
         // Moving
         for (int level = 0; level < nlevels; ++level)
@@ -1160,12 +1177,10 @@ namespace ORB_SLAM3
                 else
                 {
                     // If inside the crosswalk polygon, give the crosswalk label.
-                    for (size_t i = 0; i < convexhulls.size(); i++) 
-                    {
-                        if (cv::pointPolygonTest(convexhulls, search_coord, false) > 0) 
+                    if (convexHulls[level].size()>0){
+                        if (cv::pointPolygonTest(convexHulls[level], search_coord, false) > 0) 
                         {
                             is_crosswalk = true;
-                            break;
                         }
                     }
                     if (is_crosswalk){
@@ -1178,7 +1193,6 @@ namespace ORB_SLAM3
                 }
             }
         }
-        return convexhulls;  
     }
 
     // Epipolar constraints and output the T matrix.
@@ -1264,7 +1278,7 @@ namespace ORB_SLAM3
 
 
     int ORBextractor::operator()( InputArray _image, InputArray _segment, InputArray _mask, vector<KeyPoint>& _keypoints,
-                                  OutputArray _descriptors, std::vector<int> &vLappingArea, vector<Point>& _convexhulls)
+                                  OutputArray _descriptors, std::vector<int> &vLappingArea, vector< vector<Point> >& _convexHulls)
     {
         //cout << "[ORBextractor]: Max Features: " << nfeatures << endl;
         if(_image.empty())
@@ -1300,10 +1314,18 @@ namespace ORB_SLAM3
         }
 
         std::chrono::steady_clock::time_point tc1 = std::chrono::steady_clock::now();
-        _convexhulls = CheckMovingKeyPointsAndCalculateConvexHull(allKeypoints,T_M);
+        // Convexhull
+        // Generate a crosswalk mask and polygon for each level
+        int crosswalkLabel = 13;
+        _convexHulls.clear();
+        _convexHulls = vector< vector<Point> >(nlevels);
+        ComputeConvexhullFromMask(_convexHulls, crosswalkLabel);
+        // std::copy(convexHulls.begin(), convexHulls.end(), _convexHulls);
+        
+        CheckWithConvexHull(allKeypoints,T_M,_convexHulls);
         std::chrono::steady_clock::time_point tc2 = std::chrono::steady_clock::now();
         double tc= std::chrono::duration_cast<std::chrono::duration<double> >(tc2 - tc1).count();
-        cout << "check time CheckMovingKeyPointsAndCalculateConvexHull =" << tc*1000 <<  endl; // milisecond
+        cout << "check time CheckWithConvexHull =" << tc*1000 <<  endl; // milisecond
 
         Mat descriptors;
 
@@ -1318,8 +1340,8 @@ namespace ORB_SLAM3
             descriptors = _descriptors.getMat();
         }
 
-        //_keypoints.clear();
-        //_keypoints.reserve(nkeypoints);
+        _keypoints.clear();
+        _keypoints.reserve(nkeypoints);
         _keypoints = vector<cv::KeyPoint>(nkeypoints);
 
         int offset = 0;

@@ -467,7 +467,7 @@ void Frame::ExtractORB(int flag, const cv::Mat &im, const cv::Mat &imS, const in
 {
     vector<int> vLapping = {x0,x1};
     if(flag==0)
-        monoLeft = (*mpORBextractorLeft)(im,imS,cv::Mat(),mvKeys,mDescriptors,vLapping,mvConvexHull);
+        monoLeft = (*mpORBextractorLeft)(im,imS,cv::Mat(),mvKeys,mDescriptors,vLapping,mvConvexHulls);
     else
         monoRight = (*mpORBextractorRight)(im,imS,cv::Mat(),mvKeysRight,mDescriptorsRight,vLapping,mvConvexHullRight);
 }
@@ -886,6 +886,42 @@ void Frame::UndistortKeyPoints()
     cv::Mat mat(N,2,CV_32F);
 
     for(int i=0; i<N; i++)
+    {
+        mat.at<float>(i,0)=mvKeys[i].pt.x;
+        mat.at<float>(i,1)=mvKeys[i].pt.y;
+    }
+
+    // Undistort points
+    mat=mat.reshape(2);
+    cv::undistortPoints(mat,mat, static_cast<Pinhole*>(mpCamera)->toK(),mDistCoef,cv::Mat(),mK);
+    mat=mat.reshape(1);
+
+
+    // Fill undistorted keypoint vector
+    mvKeysUn.resize(N);
+    for(int i=0; i<N; i++)
+    {
+        cv::KeyPoint kp = mvKeys[i];
+        kp.pt.x=mat.at<float>(i,0);
+        kp.pt.y=mat.at<float>(i,1);
+        mvKeysUn[i]=kp;
+    }
+
+}
+
+void Frame::UndistortConvexHulls()
+{
+    if(mDistCoef.at<float>(0)==0.0)
+    {
+        mvKeysUn=mvKeys;
+        return;
+    }
+
+    // Fill matrix with points
+    int nConvexHulls = (int) mvConvexHulls.size();
+    cv::Mat mat(nConvexHulls,2,CV_32F);
+
+    for(int i=0; i<nConvexHulls; i++)
     {
         mat.at<float>(i,0)=mvKeys[i].pt.x;
         mat.at<float>(i,1)=mvKeys[i].pt.y;

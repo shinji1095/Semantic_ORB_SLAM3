@@ -691,20 +691,40 @@ void LocalMapping::CreateNewMapPoints()
                 continue;
 
             // Triangulation is succesfull
-            // std::cout << "--- work6!"  << std::endl;
             int class_idx1 = mpCurrentKeyFrame->mvKeysUn[idx1].class_id;
             int class_idx2 = pKF2->mvKeysUn[idx2].class_id;
-            int class_idx = 7;
-            // if (class_idx1 == 13 || class_idx2 == 13){ // crosswalk
-            //     class_idx = 13;
-            // } else if (class_idx1 == 15 || class_idx2 == 15) // signal_red
-            // {
-            //     class_idx = 15;
-            // }else if (class_idx1 == 16 || class_idx2 == 16){
-            //     class_idx = 16;
-            // }else {
-            //     class_idx = class_idx1;
-            // }
+            int class_idx;
+
+            // If inside the crosswalk polygon, give the crosswalk label.
+            // For the current key frame
+            bool is_crosswalk = false;
+            cv::Point2f keypoint1 = kp1.pt * mpCurrentKeyFrame->mvScaleFactors[kp1.octave];
+            if (mpCurrentKeyFrame->mvConvexHulls.size()>0){
+                std::vector<cv::Point> convexHull1 = mpCurrentKeyFrame->mvConvexHulls[kp1.octave];
+                // Check if the convexhull is empty
+                if (convexHull1.empty()) continue;
+                if (cv::pointPolygonTest(convexHull1, keypoint1, false) > 0) 
+                {
+                    is_crosswalk = false;
+                }
+            }
+            // For the second current key frame
+            if (pKF2->mvConvexHulls.size()>0){
+                cv::Point2f keypoint2 = kp2.pt * pKF2->mvScaleFactors[kp2.octave];
+                std::vector<cv::Point> convexHull2 = pKF2->mvConvexHulls[kp2.octave];
+
+                // Check the size of the convex hull
+                if (convexHull2.empty()) continue;
+
+                if (cv::pointPolygonTest(convexHull2, keypoint2, false) > 0) 
+                {
+                    is_crosswalk = false;
+                }
+            }
+            if (is_crosswalk)
+            {
+                class_idx = 13;
+            }
             
             // std::cout << "class idx1 " << class_idx1 << ", class idx2 " << class_idx2 << std::endl;
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap(), class_idx);

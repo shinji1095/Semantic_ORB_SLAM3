@@ -267,7 +267,7 @@ public:
     // ORB descriptor, each row associated to a keypoint.
     cv::Mat mDescriptors, mDescriptorsRight;
 
-    std::vector<cv::Point> mvConvexHull, mvConvexHullRight;
+    std::vector< std::vector<cv::Point> > mvConvexHulls, mvConvexHullRight;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     // Flag to identify outlier associations.
@@ -340,6 +340,8 @@ private:
     void UndistortKeyPoints();
     void InitializeScaleLevels();
     static void InitializeClass();
+
+    void UndistortConvexHulls();
 
     // Computes image bounds for the undistorted image (called in the constructor).
     void ComputeImageBounds(const cv::Mat &imLeft);

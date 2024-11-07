@@ -1468,6 +1468,7 @@ namespace ORB_SLAM3
                 }
                 else
                 {
+                    pMP->mClassIdx = 8;
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
                 }

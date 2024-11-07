@@ -98,7 +98,7 @@ public:
     // Mask is ignored in the current implementation.
     int operator()( cv::InputArray _image, cv::InputArray _segment, cv::InputArray _mask,
                     std::vector<cv::KeyPoint>& _keypoints, cv::OutputArray _descriptors,
-                    std::vector<int> &vLappingArea, std::vector<cv::Point>& _convexhulls);
+                    std::vector<int> &vLappingArea, std::vector< std::vector<cv::Point> >& _convexHulls);
 
     int inline GetLevels(){
         return nlevels;}
@@ -124,9 +124,9 @@ public:
 
     std::vector<cv::Mat> mvImagePyramid;
     std::vector<cv::Mat> mvImagePyramidSegment;
-    std::vector<cv::Point> CheckMovingKeyPointsAndCalculateConvexHull(std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T);
+    void CheckWithConvexHull(std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T, std::vector<std::vector<cv::Point>>& convexHulls);
     void ProcessMovingObject(const cv::Mat &imgray );
-    void ComputeConvexhullFromMask(std::vector<cv::Point>& convexhulls, int targetLabel);
+    void ComputeConvexhullFromMask(std::vector< std::vector<cv::Point> >& convexhull, int targetLabel);
 
     // The previous image
     cv::Mat imGrayPre;
@@ -156,7 +156,6 @@ protected:
                                            const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-    void ComputeConvexhullFromMask();
     std::vector<cv::Point> pattern;
 
     // int mostFrequentElement(const std::vector<int>& class_indices);
