@@ -76,7 +76,7 @@ namespace ORB_SLAM3
     // cv::Scalar(Blue, Green, Red)
     // cv::Scalar(0, 0, 0),        // background
     cv::Scalar(0, 0, 0),        // 0: person
-    cv::Scalar(0, 255, 0),      // 1: bicycle
+    cv::Scalar(128, 128, 128),      // 1: bicycle
     cv::Scalar(255, 0, 0),      // 2: car
     cv::Scalar(0, 255, 255),    // 3: motorbike
     cv::Scalar(255, 255, 0),    // 4: bus
@@ -273,6 +273,7 @@ void MapDrawer::DrawMapPoints()
     glBegin(GL_POINTS);
     // glColor3f(0.0,1.0,0.0);
 
+    double draw_crosswalk_mp_count=0;
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {
         if((*sit)->isBad())
@@ -280,6 +281,7 @@ void MapDrawer::DrawMapPoints()
         // setGlColor(color_map[vpMPs[i]->mClassIdx]);
         Eigen::Matrix<float,3,1> pos = (*sit)->GetWorldPos();
         cv::Scalar color = (*sit)->mClassIdx!=40 ? color_map[(*sit)->mClassIdx] : cv::Scalar(0,0,0);
+        if ((*sit)->mClassIdx==13) draw_crosswalk_mp_count++;
         float r = color[2] / 255.0f;
         float g = color[1] / 255.0f;
         float b = color[0] / 255.0f;
@@ -288,6 +290,7 @@ void MapDrawer::DrawMapPoints()
         glVertex3f(pos(0),pos(1),pos(2));
 
     }
+    std::cout << "draw MP count: " << draw_crosswalk_mp_count << std::endl;
 
     glEnd();
 }

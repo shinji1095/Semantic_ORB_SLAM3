@@ -184,6 +184,7 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const cv::Mat &imSeg
         return;
 
     UndistortKeyPoints();
+    // UndistortConvexHulls();
 
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_StartStereoMatches = std::chrono::steady_clock::now();
@@ -371,6 +372,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imS, const double &timeStamp,
         return;
 
     UndistortKeyPoints();
+
+    UndistortConvexHulls();
 
     // Set no stereo information
     mvuRight = vector<float>(N,-1);
@@ -896,7 +899,6 @@ void Frame::UndistortKeyPoints()
     cv::undistortPoints(mat,mat, static_cast<Pinhole*>(mpCamera)->toK(),mDistCoef,cv::Mat(),mK);
     mat=mat.reshape(1);
 
-
     // Fill undistorted keypoint vector
     mvKeysUn.resize(N);
     for(int i=0; i<N; i++)
@@ -906,7 +908,6 @@ void Frame::UndistortKeyPoints()
         kp.pt.y=mat.at<float>(i,1);
         mvKeysUn[i]=kp;
     }
-
 }
 
 void Frame::UndistortConvexHulls()
@@ -917,14 +918,26 @@ void Frame::UndistortConvexHulls()
         return;
     }
 
+    // Check if the Convex hulls are empty
+    for (int i=0; i<mvConvexHulls.size();++i) 
+    {
+        if(mvConvexHulls[i].empty()) return;
+    }
+
     // Fill matrix with points
-    int nConvexHulls = (int) mvConvexHulls.size();
+    int nConvexHulls = 0;
+    for (int level = 0; level < mvConvexHulls.size(); ++level){
+        nConvexHulls += (int)mvConvexHulls[level].size();
+    }
     cv::Mat mat(nConvexHulls,2,CV_32F);
 
-    for(int i=0; i<nConvexHulls; i++)
+    for(int i=0; i<mvConvexHulls.size(); i++)
     {
-        mat.at<float>(i,0)=mvKeys[i].pt.x;
-        mat.at<float>(i,1)=mvKeys[i].pt.y;
+        for (int j=0; j<mvConvexHulls[i].size();++j)
+        {
+            mat.at<float>(i,0)=mvConvexHulls[i][j].x;
+            mat.at<float>(i,1)=mvConvexHulls[i][j].y;
+        }
     }
 
     // Undistort points
@@ -934,15 +947,22 @@ void Frame::UndistortConvexHulls()
 
 
     // Fill undistorted keypoint vector
-    mvKeysUn.resize(N);
-    for(int i=0; i<N; i++)
+    mvConvexHullsUn.resize(mvConvexHulls.size());
+    for (int k=0; k<mvConvexHulls.size();++k)
     {
-        cv::KeyPoint kp = mvKeys[i];
-        kp.pt.x=mat.at<float>(i,0);
-        kp.pt.y=mat.at<float>(i,1);
-        mvKeysUn[i]=kp;
+        mvConvexHullsUn[k].resize(mvConvexHulls[k].size());
     }
 
+    for(int i=0; i<mvConvexHulls.size(); i++)
+    {
+        for (int j=0; j<mvConvexHulls[i].size();++j)
+        {
+            cv::Point kp = mvConvexHulls[i][j];
+            kp.x=mat.at<float>(i,0);
+            kp.y=mat.at<float>(i,1);
+            mvConvexHullsUn[i][j]=kp;
+        }
+    }
 }
 
 inline void Frame::InitializeScaleLevels() 

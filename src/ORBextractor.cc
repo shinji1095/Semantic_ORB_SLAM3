@@ -1090,7 +1090,7 @@ namespace ORB_SLAM3
         for (int level = 0; level < nlevels; ++level)
         {
             std::vector<cv::Point> convexHull;
-            cv::Mat segment_image = mvImagePyramidSegment[level].clone();
+            cv::Mat segment_image = mvImagePyramidSegment[0].clone();
             cv::Mat mask = (segment_image == targetLabel);
 
             cv::Mat dilated_mask;
@@ -1137,10 +1137,11 @@ namespace ORB_SLAM3
 
         // AI output starts frmo 0, but labels start from 1
         int crosswalkLabel = CROSSWALK_LABEL-1; // AI output is
-        int signalRedLabel = SIGNAL_RED_LABEL-1;
 
         // Make further judgment        
         // Moving
+        int class_hit_count = 0;
+        cv::Mat imSegment = mvImagePyramidSegment[0].clone();
         for (int level = 0; level < nlevels; ++level)
         {
             vector<cv::KeyPoint>& mkeypoints = mvKeysT[level];
@@ -1154,13 +1155,11 @@ namespace ORB_SLAM3
             
             vector<cv::KeyPoint>::iterator keypoint = mkeypoints.begin();
         
-            cv::Mat imSegment = mvImagePyramidSegment[0].clone();
             while(keypoint != mkeypoints.end())
             {
                 bool is_crosswalk = false;
                 cv::Point2f search_coord = keypoint->pt * scale;
                 // Search in the semantic image
-                // std::cout << "scale " << scale << ", x " << search_coord.x << ", y" << search_coord.y << std::endl;
                 if(search_coord.x >= (cameraWidth -1)) search_coord.x=(cameraWidth -1);
                 if(search_coord.y >= (cameraHeight -1)) search_coord.y=(cameraHeight -1);
                 int label_coord =(int)imSegment.ptr<uchar>((int)search_coord.y)[(int)search_coord.x];
@@ -1184,7 +1183,8 @@ namespace ORB_SLAM3
                         }
                     }
                     if (is_crosswalk){
-                        keypoint->class_id = 13; // crosswalk
+                        keypoint->class_id = crosswalkLabel; // crosswalk
+                        class_hit_count++;
                         // std::cout << "Hit crosswalk" << std::endl;
                     } else{
                         keypoint->class_id = label_coord;
@@ -1193,6 +1193,7 @@ namespace ORB_SLAM3
                 }
             }
         }
+        std::cout << "class hit: " << class_hit_count << std::endl;
     }
 
     // Epipolar constraints and output the T matrix.
@@ -1273,7 +1274,6 @@ namespace ORB_SLAM3
                 T_M.push_back(nextpoint[i]);
             }
         }
-
     }
 
 
@@ -1316,7 +1316,7 @@ namespace ORB_SLAM3
         std::chrono::steady_clock::time_point tc1 = std::chrono::steady_clock::now();
         // Convexhull
         // Generate a crosswalk mask and polygon for each level
-        int crosswalkLabel = 13;
+        int crosswalkLabel = CROSSWALK_LABEL-1;
         _convexHulls.clear();
         _convexHulls = vector< vector<Point> >(nlevels);
         ComputeConvexhullFromMask(_convexHulls, crosswalkLabel);
@@ -1365,7 +1365,6 @@ namespace ORB_SLAM3
             computeDescriptors(workingMat, keypoints, desc, pattern);
 
             offset += nkeypointsLevel;
-
 
             float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
             int i = 0;

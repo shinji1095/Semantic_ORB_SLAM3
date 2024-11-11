@@ -23,47 +23,47 @@
 #include <list>
 #include <opencv2/opencv.hpp>
 
-#define PEOPLE_LABLE 1
-#define BICYCLE_LABEL 2
-#define CAR_LABEL 3
-#define MOTORBIKE_LABEL 4
-#define BUS_LABEL 5
-#define train 6
-#define TRUCK_LABEL 7
-#define boat 8
-#define traffic_light 9
-#define bicycler 10
-#define braille_block 11
-#define guardrail 12
-#define white_line 13
-#define CROSSWALK_LABEL 14
-#define signal_button 15
-#define SIGNAL_RED_LABEL 16
-#define signal_blue 17
-#define stairs 18
-#define handrail 19
-#define steps 20
-#define faregates 21
+#define PEOPLE_LABLE         1
+#define BICYCLE_LABEL        2
+#define CAR_LABEL            3
+#define MOTORBIKE_LABEL      4
+#define BUS_LABEL            5
+#define train                6
+#define TRUCK_LABEL          7 // いったんこれ
+#define boat                 8
+#define traffic_light        9
+#define bicycler             10
+#define braille_block        11
+#define guardrail            12
+#define white_line           13
+#define CROSSWALK_LABEL      14
+#define signal_button        15
+#define SIGNAL_RED_LABEL     16
+#define signal_blue          17
+#define stairs               18
+#define handrail             19
+#define steps                20
+#define faregates            21
 #define train_ticket_machine 22
-#define shrubs 23
-#define tree 24
-#define vending_machine 25
-#define bathroom 26
-#define door 27
-#define elevator 28
-#define escalator 29
-#define bollard 30
-#define bus_stop_sign 31
-#define pole 32
-#define MONUMENT_LABEL 33
-#define FENCE_LABEL 34
-#define wall 35
-#define signboard 36
-#define FLAG_LABEL 37
-#define postbox 38
-#define safetycone 39
-#define SIDEWALK_LABEL 40
-#define ROAD_LABEL 41
+#define shrubs               23
+#define tree                 24
+#define vending_machine      25
+#define bathroom             26
+#define door                 27
+#define elevator             28
+#define escalator            29
+#define bollard              30
+#define bus_stop_sign        31
+#define pole                 32
+#define MONUMENT_LABEL       33
+#define FENCE_LABEL          34
+#define wall                 35
+#define signboard            36
+#define FLAG_LABEL           37
+#define postbox              38
+#define safetycone           39
+#define SIDEWALK_LABEL       40
+#define ROAD_LABEL           41
 
 namespace ORB_SLAM3
 {

@@ -358,32 +358,54 @@ void LocalMapping::MapPointCulling()
 
     int borrar = mlpRecentAddedMapPoints.size();
 
+    double mp_culling_count;
+    double mp_total_culling_count;
     while(lit!=mlpRecentAddedMapPoints.end())
     {
+        bool is_erase = false;
+        mp_culling_count=0;
+        mp_total_culling_count=0;
         MapPoint* pMP = *lit;
 
         if(pMP->isBad())
+        {
+            if (pMP->mClassIdx==(CROSSWALK_LABEL-1)) is_erase=true;
             lit = mlpRecentAddedMapPoints.erase(lit);
+            if (is_erase)mp_culling_count++;
+            mp_total_culling_count++;
+        }
         else if(pMP->GetFoundRatio()<0.25f)
         {
             pMP->SetBadFlag();
+            if (pMP->mClassIdx==(CROSSWALK_LABEL-1)) is_erase=true;
             lit = mlpRecentAddedMapPoints.erase(lit);
+            if (is_erase) mp_culling_count++;
+            mp_total_culling_count++;
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=2 && pMP->Observations()<=cnThObs)
         {
             pMP->SetBadFlag();
+            if (pMP->mClassIdx==(CROSSWALK_LABEL-1)) is_erase=true;
             lit = mlpRecentAddedMapPoints.erase(lit);
+            if (is_erase) mp_culling_count++;
+            mp_total_culling_count++;
         }
         else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=3)
+        {
+            if (pMP->mClassIdx==(CROSSWALK_LABEL-1)) is_erase=true;
             lit = mlpRecentAddedMapPoints.erase(lit);
+            if (is_erase) mp_culling_count++;
+            mp_total_culling_count++;
+        }
         else
         {
             lit++;
             borrar--;
         }
     }
+    std::cout << "culling count:" << mp_culling_count << std::endl;
+    std::cout << "total culling count:" << mp_total_culling_count << std::endl;
 }
-
 
 void LocalMapping::CreateNewMapPoints()
 {
@@ -480,6 +502,7 @@ void LocalMapping::CreateNewMapPoints()
 
         // Triangulate each match
         const int nmatches = vMatchedIndices.size();
+
         for(int ikp=0; ikp<nmatches; ikp++)
         {
             const int &idx1 = vMatchedIndices[ikp].first;
@@ -691,42 +714,38 @@ void LocalMapping::CreateNewMapPoints()
                 continue;
 
             // Triangulation is succesfull
-            int class_idx1 = mpCurrentKeyFrame->mvKeysUn[idx1].class_id;
-            int class_idx2 = pKF2->mvKeysUn[idx2].class_id;
-            int class_idx;
-
             // If inside the crosswalk polygon, give the crosswalk label.
             // For the current key frame
+            int class_idx = 0;
             bool is_crosswalk = false;
-            cv::Point2f keypoint1 = kp1.pt * mpCurrentKeyFrame->mvScaleFactors[kp1.octave];
-            if (mpCurrentKeyFrame->mvConvexHulls.size()>0){
-                std::vector<cv::Point> convexHull1 = mpCurrentKeyFrame->mvConvexHulls[kp1.octave];
-                // Check if the convexhull is empty
-                if (convexHull1.empty()) continue;
-                if (cv::pointPolygonTest(convexHull1, keypoint1, false) > 0) 
-                {
-                    is_crosswalk = false;
+            
+            // Check if the convexhull is empty
+            // For the current KF
+            if (mpCurrentKeyFrame->mvConvexHulls.size()>0) {
+                std::vector<cv::Point> convexHull1 = mpCurrentKeyFrame->mvConvexHulls[0];
+
+                if (!convexHull1.empty()){
+                    // Check the size of the convex hull
+                    if (cv::pointPolygonTest(convexHull1, kp1.pt, false) > 0) is_crosswalk = true;
                 }
             }
-            // For the second current key frame
+
+            // For the second KF
             if (pKF2->mvConvexHulls.size()>0){
-                cv::Point2f keypoint2 = kp2.pt * pKF2->mvScaleFactors[kp2.octave];
-                std::vector<cv::Point> convexHull2 = pKF2->mvConvexHulls[kp2.octave];
+                std::vector<cv::Point> convexHull2 = pKF2->mvConvexHulls[0];
 
                 // Check the size of the convex hull
-                if (convexHull2.empty()) continue;
-
-                if (cv::pointPolygonTest(convexHull2, keypoint2, false) > 0) 
+                if (!convexHull2.empty())
                 {
-                    is_crosswalk = false;
+                    if (cv::pointPolygonTest(convexHull2, kp2.pt, false) > 0) is_crosswalk = true;
                 }
             }
-            if (is_crosswalk)
-            {
+
+            // Add the Label
+            if (is_crosswalk){
                 class_idx = 13;
             }
             
-            // std::cout << "class idx1 " << class_idx1 << ", class idx2 " << class_idx2 << std::endl;
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap(), class_idx);
             if (bPointStereo)
                 countStereo++;
@@ -805,8 +824,8 @@ void LocalMapping::SearchInNeighbors()
     {
         KeyFrame* pKFi = *vit;
 
-        matcher.Fuse(pKFi,vpMapPointMatches);
-        if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches,true);
+        matcher.Fuse(pKFi,vpMapPointMatches); // FuseA
+        if(pKFi->NLeft != -1) matcher.Fuse(pKFi,vpMapPointMatches,true); // FuseA
     }
 
 
@@ -835,12 +854,13 @@ void LocalMapping::SearchInNeighbors()
         }
     }
 
-    matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates);
-    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true);
+    matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates); // FuseA
+    if(mpCurrentKeyFrame->NLeft != -1) matcher.Fuse(mpCurrentKeyFrame,vpFuseCandidates,true); // FuseA
 
 
     // Update points
     vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    int fused_mp_count=0;
     for(size_t i=0, iend=vpMapPointMatches.size(); i<iend; i++)
     {
         MapPoint* pMP=vpMapPointMatches[i];
@@ -850,9 +870,11 @@ void LocalMapping::SearchInNeighbors()
             {
                 pMP->ComputeDistinctiveDescriptors();
                 pMP->UpdateNormalAndDepth();
+                if (pMP->mClassIdx==13) fused_mp_count++;
             }
         }
     }
+    std::cout << "fused MP count:" << fused_mp_count << std::endl;
 
     // Update connections in covisibility graph
     mpCurrentKeyFrame->UpdateConnections();

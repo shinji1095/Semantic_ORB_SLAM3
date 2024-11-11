@@ -1145,25 +1145,7 @@ namespace ORB_SLAM3
         return nmatches;
     }
 
-    int countUnique(const std::vector<int>& class_indices) {
-        std::unordered_map<int, int> frequency_map;
-
-        for (int value : class_indices) {
-            frequency_map[value]++;
-        }
-
-        int most_frequent = class_indices[0];
-        int max_count = 0;
-
-        for (const auto& pair : frequency_map) {
-            if (pair.second > max_count) {
-                most_frequent = pair.first;
-                max_count = pair.second;
-            }
-        }
-        return most_frequent;
-    }
-
+    // FuseA
     int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const float th, const bool bRight)
     {
         GeometricCamera* pCamera;
@@ -1276,7 +1258,6 @@ namespace ORB_SLAM3
 
             int bestDist = 256;
             int bestIdx = -1;
-            vector<int> class_indicies((int)vIndices.size());
             for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
             {
                 size_t idx = *vit;
@@ -1315,7 +1296,6 @@ namespace ORB_SLAM3
                         continue;
                 }
 
-                class_indicies.push_back(kp.class_id);
                 if(bRight) idx += pKF->NLeft;
 
                 const cv::Mat &dKF = pKF->mDescriptors.row(idx);
@@ -1332,22 +1312,32 @@ namespace ORB_SLAM3
             // If there is already a MapPoint replace otherwise add new measurement
             if(bestDist<=TH_LOW)
             {
+                int class_idx;
                 MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
-                int class_idx = countUnique(class_indicies);
                 if(pMPinKF)
                 {
-                    pMPinKF->mClassIdx = class_idx;
                     if(!pMPinKF->isBad())
                     {
                         if(pMPinKF->Observations()>pMP->Observations())
+                        {
+                            // if(pMP->mClassIdx==CROSSWALK_LABEL-1 && pMPinKF->mClassIdx!=CROSSWALK_LABEL-1) 
+                            // {
+                            //     pMPinKF->mClassIdx = CROSSWALK_LABEL-1;
+                            // }
                             pMP->Replace(pMPinKF);
+                        }
                         else
+                        {
+                            // if(pMPinKF->mClassIdx==CROSSWALK_LABEL-1 && pMP->mClassIdx!=CROSSWALK_LABEL-1) 
+                            // {
+                            //     pMPinKF->mClassIdx = CROSSWALK_LABEL-1;
+                            // }
                             pMPinKF->Replace(pMP);
+                        }
                     }
                 }
                 else
                 {
-                    pMP->mClassIdx = class_idx;
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
                 }
@@ -1357,10 +1347,10 @@ namespace ORB_SLAM3
                 count_thcheck++;
 
         }
-
         return nFused;
     }
 
+    // FuseB 
     int ORBmatcher::Fuse(KeyFrame *pKF, Sophus::Sim3f &Scw, const vector<MapPoint *> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint)
     {
         // Get Calibration Parameters for later projection
@@ -1468,7 +1458,7 @@ namespace ORB_SLAM3
                 }
                 else
                 {
-                    pMP->mClassIdx = 8;
+                    pMP->mClassIdx = TRUCK_LABEL;
                     pMP->AddObservation(pKF,bestIdx);
                     pKF->AddMapPoint(pMP,bestIdx);
                 }

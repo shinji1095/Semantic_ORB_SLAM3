@@ -268,6 +268,7 @@ public:
     cv::Mat mDescriptors, mDescriptorsRight;
 
     std::vector< std::vector<cv::Point> > mvConvexHulls, mvConvexHullRight;
+    std::vector< std::vector<cv::Point> > mvConvexHullsUn, mvConvexHullRightUn;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
     // Flag to identify outlier associations.
