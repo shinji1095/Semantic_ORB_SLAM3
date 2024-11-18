@@ -360,15 +360,12 @@ namespace ORB_SLAM3 {
         int originalCols = readParameter<int>(fSettings,"Camera.width",found);
         originalImSize_.width = originalCols;
         originalImSize_.height = originalRows;
-        cameraWidth_ = originalCols;
-        cameraHeight_ = originalRows;
 
         newImSize_ = originalImSize_;
         int newHeigh = readParameter<int>(fSettings,"Camera.newHeight",found,false);
         if(found){
             bNeedToResize1_ = true;
             newImSize_.height = newHeigh;
-            cameraHeight_ = newHeigh;
 
             if(!bNeedToRectify_){
                 //Update calibration
@@ -388,7 +385,6 @@ namespace ORB_SLAM3 {
         if(found){
             bNeedToResize1_ = true;
             newImSize_.width = newWidth;
-            cameraWidth_ = newWidth;
 
             if(!bNeedToRectify_){
                 //Update calibration

@@ -236,7 +236,7 @@ void LoopClosing::Run()
                         g2o::Sim3 g2oSww_new = g2oTwc*mg2oLoopScw;
 
                         Eigen::Vector3d phi = LogSO3(g2oSww_new.rotation().toRotationMatrix());
-                        cout << "phi = " << phi.transpose() << endl; 
+                        cout << "phi = " << phi.transpose() << endl;
                         if (fabs(phi(0))<0.008f && fabs(phi(1))<0.008f && fabs(phi(2))<0.349f)
                         {
                             if(mpCurrentKF->GetMap()->IsInertial())
@@ -461,7 +461,7 @@ bool LoopClosing::NewDetectCommonRegions()
 
 
         }
-    }  
+    }
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_EndEstSim3_1 = std::chrono::steady_clock::now();
 
@@ -982,7 +982,7 @@ void LoopClosing::CorrectLoop()
         unique_lock<mutex> lock(mMutexGBA);
         mbStopGBA = true;
 
-        mnFullBAIdx++;
+        //mnFullBAIdx++;    // error: use of an operand of type 'bool' in 'operator++' is forbidden in C++17
 
         if(mpThreadGBA)
         {
@@ -1062,7 +1062,7 @@ void LoopClosing::CorrectLoop()
                 //Pose without correction
                 g2o::Sim3 g2oSiw(Tiw.unit_quaternion().cast<double>(),Tiw.translation().cast<double>(),1.0);
                 NonCorrectedSim3[pKFi]=g2oSiw;
-            }  
+            }
         }
 
         // Correct all MapPoints obsrved by current keyframe and neighbors, so that they align with the other side of the loop
@@ -1207,7 +1207,7 @@ void LoopClosing::CorrectLoop()
     }
 
     // Loop closed. Release Local Mapping.
-    mpLocalMapper->Release();    
+    mpLocalMapper->Release();
 
     mLastLoopKFid = mpCurrentKF->mnId; //TODO old varible, it is not use in the new algorithm
 }
@@ -1233,7 +1233,7 @@ void LoopClosing::MergeLocal()
         unique_lock<mutex> lock(mMutexGBA);
         mbStopGBA = true;
 
-        mnFullBAIdx++;
+        //mnFullBAIdx++;    // error: use of an operand of type 'bool' in 'operator++' is forbidden in C++17
 
         if(mpThreadGBA)
         {
@@ -1806,7 +1806,7 @@ void LoopClosing::MergeLocal2()
         unique_lock<mutex> lock(mMutexGBA);
         mbStopGBA = true;
 
-        mnFullBAIdx++;
+        //mnFullBAIdx++;    // error: use of an operand of type 'bool' in 'operator++' is forbidden in C++17
 
         if(mpThreadGBA)
         {
@@ -2130,7 +2130,7 @@ void LoopClosing::SearchAndFuse(const KeyFrameAndPose &CorrectedPosesMap, vector
         Sophus::Sim3f Scw = Converter::toSophus(g2oScw);
 
         vector<MapPoint*> vpReplacePoints(vpMapPoints.size(),static_cast<MapPoint*>(NULL));
-        int numFused = matcher.Fuse(pKFi,Scw,vpMapPoints,4,vpReplacePoints); // FuseB
+        int numFused = matcher.Fuse(pKFi,Scw,vpMapPoints,4,vpReplacePoints);
 
         // Get Map Mutex
         unique_lock<mutex> lock(pMap->mMutexMapUpdate);
@@ -2175,7 +2175,7 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame*> &vConectedKFs, vector<Ma
             Scw.translation() - Tcw.translation() << std::endl <<
             Scw.scale() - 1.f << std::endl;*/
         vector<MapPoint*> vpReplacePoints(vpMapPoints.size(),static_cast<MapPoint*>(NULL));
-        matcher.Fuse(pKF,Scw,vpMapPoints,4,vpReplacePoints); // FuseB
+        matcher.Fuse(pKF,Scw,vpMapPoints,4,vpReplacePoints);
 
         // Get Map Mutex
         unique_lock<mutex> lock(pMap->mMutexMapUpdate);
@@ -2266,7 +2266,7 @@ void LoopClosing::ResetIfRequested()
 }
 
 void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoopKF)
-{  
+{
     Verbose::PrintMess("Starting Global Bundle Adjustment", Verbose::VERBOSITY_NORMAL);
 
 #ifdef REGISTER_TIMES
@@ -2442,7 +2442,7 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
 
                     //assert(!pKF->mVwbGBA.empty());
                     pKF->SetVelocity(pKF->mVwbGBA);
-                    pKF->SetNewBias(pKF->mBiasGBA);                    
+                    pKF->SetNewBias(pKF->mBiasGBA);
                 }
 
                 lpKFtoCheck.pop_front();

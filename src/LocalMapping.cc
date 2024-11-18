@@ -742,9 +742,9 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             // Add the Label
-            if (is_crosswalk){
-                class_idx = 13;
-            }
+            if (is_crosswalk) class_idx = 13;
+            else class_idx = kp1.class_id;
+            
             
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap(), class_idx);
             if (bPointStereo)
